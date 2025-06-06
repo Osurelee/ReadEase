@@ -32,14 +32,27 @@ console.log('copy-article content.js injected');
   btn.id = 'copy-article-btn';
   btn.title = '一键复制网页标题和正文';
 
-  // 设置按钮样式
-  function updateButtonStyle() {
+  // 根据页面背景设置按钮和菜单样式
+  function updateStyles() {
     const bodyBgColor = getBackgroundColor(document.body);
     const colors = getContrastColor(bodyBgColor);
-    
+
     btn.style.color = colors.color;
     btn.style.backgroundColor = colors.background;
     btn.style.border = `1px solid ${colors.color}`;
+
+    if (menu) {
+      menu.style.color = colors.color;
+      menu.style.backgroundColor = colors.background;
+      menu.style.border = `1px solid ${colors.color}`;
+      const hoverBg = colors.background === '#ffffff' ? '#f0f0f0' : '#333333';
+      menu.querySelectorAll('button').forEach(mb => {
+        mb.style.color = colors.color;
+        mb.style.backgroundColor = 'transparent';
+        mb.onmouseenter = () => mb.style.backgroundColor = hoverBg;
+        mb.onmouseleave = () => mb.style.backgroundColor = 'transparent';
+      });
+    }
   }
 
   // 纯文字按钮内容
@@ -77,17 +90,6 @@ console.log('copy-article content.js injected');
   btn.style.top = '40%';
   btn.style.right = '24px';
 
-  // 监听背景色变化
-  const observer = new MutationObserver(updateButtonStyle);
-  observer.observe(document.body, {
-    attributes: true,
-    attributeFilter: ['style', 'class'],
-    subtree: true
-  });
-
-  document.body.appendChild(btn);
-  updateButtonStyle(); // 初始化按钮样式
-
   // 创建格式选择菜单
   const menu = document.createElement('div');
   menu.id = 'copy-format-menu';
@@ -97,6 +99,17 @@ console.log('copy-article content.js injected');
     <button data-format="text">Text</button>
   `;
   document.body.appendChild(menu);
+
+  // 监听背景色变化
+  const observer = new MutationObserver(updateStyles);
+  observer.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['style', 'class'],
+    subtree: true
+  });
+
+  document.body.appendChild(btn);
+  updateStyles(); // 初始化样式
 
   // 清理HTML内容的函数
   function cleanHtml(html) {
