@@ -198,7 +198,12 @@ console.log('copy-article content.js injected');
     }
 
     try {
-      await navigator.clipboard.write([new ClipboardItem(item)]);
+      if (window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem(item)]);
+      } else {
+        const textData = format === "markdown" ? markdown : (format === "html" ? fullHtml : textContent);
+        await navigator.clipboard.writeText(textData);
+      }
       const originalBg = btn.style.backgroundColor;
       const originalColor = btn.style.color;
       btn.style.backgroundColor = "#e6ffe6";
@@ -210,7 +215,22 @@ console.log('copy-article content.js injected');
         btn.title = "一键复制网页标题和正文";
       }, 1200);
     } catch (e) {
-      alert('复制失败，请手动复制！');
+      try {
+        const textData = format === "markdown" ? markdown : (format === "html" ? fullHtml : textContent);
+        await navigator.clipboard.writeText(textData);
+        const originalBg = btn.style.backgroundColor;
+        const originalColor = btn.style.color;
+        btn.style.backgroundColor = "#e6ffe6";
+        btn.style.color = "#000000";
+        btn.title = "复制成功！";
+        setTimeout(() => {
+          btn.style.backgroundColor = originalBg;
+          btn.style.color = originalColor;
+          btn.title = "一键复制网页标题和正文";
+        }, 1200);
+      } catch (err) {
+        alert('复制失败，请手动复制！');
+      }
     }
   }
 
