@@ -197,19 +197,34 @@ console.log('copy-article content.js injected');
       item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
     }
 
+    let copied = false;
     try {
       await navigator.clipboard.write([new ClipboardItem(item)]);
+      copied = true;
+    } catch (e) {
+      try {
+        const fallback =
+          format === 'markdown' ? markdown :
+          format === 'html' ? fullHtml : textContent;
+        await navigator.clipboard.writeText(fallback);
+        copied = true;
+      } catch (err) {
+        console.error('copy failed', err);
+      }
+    }
+
+    if (copied) {
       const originalBg = btn.style.backgroundColor;
       const originalColor = btn.style.color;
       btn.style.backgroundColor = "#e6ffe6";
       btn.style.color = "#000000";
       btn.title = "复制成功！";
-      setTimeout(()=> {
+      setTimeout(() => {
         btn.style.backgroundColor = originalBg;
         btn.style.color = originalColor;
         btn.title = "一键复制网页标题和正文";
       }, 1200);
-    } catch (e) {
+    } else {
       alert('复制失败，请手动复制！');
     }
   }
