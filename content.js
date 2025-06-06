@@ -198,13 +198,22 @@ console.log('copy-article content.js injected');
     }
 
     try {
-      await navigator.clipboard.write([new ClipboardItem(item)]);
+      if (window.ClipboardItem && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem(item)]);
+      } else if (navigator.clipboard.writeText) {
+        const fallbackText = format === 'html' ? textContent :
+          (format === 'markdown' ? markdown : textContent);
+        await navigator.clipboard.writeText(fallbackText);
+      } else {
+        throw new Error('Clipboard API not supported');
+      }
+
       const originalBg = btn.style.backgroundColor;
       const originalColor = btn.style.color;
       btn.style.backgroundColor = "#e6ffe6";
       btn.style.color = "#000000";
       btn.title = "复制成功！";
-      setTimeout(()=> {
+      setTimeout(() => {
         btn.style.backgroundColor = originalBg;
         btn.style.color = originalColor;
         btn.title = "一键复制网页标题和正文";
