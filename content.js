@@ -1,7 +1,7 @@
 console.log('copy-article content.js injected');
 
 (function() {
-  if (document.getElementById('read-ease-wrap')) return;
+  if (document.getElementById('copy-article-btn')) return;
 
   // 获取背景色的函数
   function getBackgroundColor(element) {
@@ -28,27 +28,18 @@ console.log('copy-article content.js injected');
       { color: '#ffffff', background: '#000000' };
   }
 
-  const wrap = document.createElement('div');
-  wrap.id = 'read-ease-wrap';
-
   const btn = document.createElement('button');
   btn.id = 'copy-article-btn';
   btn.title = '一键复制网页标题和正文';
-
-  const readerBtn = document.createElement('button');
-  readerBtn.id = 'reader-mode-btn';
-  readerBtn.title = '阅读模式';
 
   // 根据页面背景设置按钮和菜单样式
   function updateStyles() {
     const bodyBgColor = getBackgroundColor(document.body);
     const colors = getContrastColor(bodyBgColor);
 
-    [btn, readerBtn].forEach(b => {
-      b.style.color = colors.color;
-      b.style.backgroundColor = colors.background;
-      b.style.border = `1px solid ${colors.color}`;
-    });
+    btn.style.color = colors.color;
+    btn.style.backgroundColor = colors.background;
+    btn.style.border = `1px solid ${colors.color}`;
 
     if (menu) {
       menu.style.color = colors.color;
@@ -66,40 +57,38 @@ console.log('copy-article content.js injected');
 
   // 纯文字按钮内容
   btn.innerHTML = '<div style="font-size:15px;line-height:1.1;font-weight:bold;white-space:pre;user-select:none;text-align:center;">复制\n正文</div>';
-  readerBtn.innerHTML = '<div style="font-size:15px;line-height:1.1;font-weight:bold;white-space:pre;user-select:none;text-align:center;">阅读\n模式</div>';
 
   // 拖动功能变量
   let isDragging = false, offsetX = 0, offsetY = 0;
 
-  wrap.addEventListener('mousedown', function(e) {
-    if (e.target !== btn && e.target !== readerBtn) return;
+  btn.addEventListener('mousedown', function(e) {
     isDragging = true;
-    offsetX = e.clientX - wrap.getBoundingClientRect().left;
-    offsetY = e.clientY - wrap.getBoundingClientRect().top;
-    wrap.style.transition = 'none';
+    offsetX = e.clientX - btn.getBoundingClientRect().left;
+    offsetY = e.clientY - btn.getBoundingClientRect().top;
+    btn.style.transition = 'none';
     document.body.style.userSelect = 'none';
   });
 
   document.addEventListener('mousemove', function(e) {
     if (isDragging) {
-      wrap.style.left = (e.clientX - offsetX) + 'px';
-      wrap.style.top = (e.clientY - offsetY) + 'px';
-      wrap.style.right = 'auto';
+      btn.style.left = (e.clientX - offsetX) + 'px';
+      btn.style.top = (e.clientY - offsetY) + 'px';
+      btn.style.right = 'auto';
     }
   });
 
   document.addEventListener('mouseup', function() {
     if (isDragging) {
       isDragging = false;
-      wrap.style.transition = '';
+      btn.style.transition = '';
       document.body.style.userSelect = '';
     }
   });
 
   // 初始位置
-  wrap.style.left = 'auto';
-  wrap.style.top = '40%';
-  wrap.style.right = '24px';
+  btn.style.left = 'auto';
+  btn.style.top = '40%';
+  btn.style.right = '24px';
 
   // 创建格式选择菜单
   const menu = document.createElement('div');
@@ -119,9 +108,7 @@ console.log('copy-article content.js injected');
     subtree: true
   });
 
-  wrap.appendChild(btn);
-  wrap.appendChild(readerBtn);
-  document.body.appendChild(wrap);
+  document.body.appendChild(btn);
   updateStyles(); // 初始化样式
 
   // 清理HTML内容的函数
@@ -192,41 +179,6 @@ console.log('copy-article content.js injected');
     e.stopPropagation();
     menu.style.display = 'none';
     copyArticle(format);
-  });
-
-  // 阅读模式按钮与遮罩
-  const overlay = document.createElement('div');
-  overlay.id = 'reader-mode-overlay';
-  const closeBtn = document.createElement('button');
-  closeBtn.id = 'reader-close-btn';
-  closeBtn.textContent = '关闭';
-  const overlayContent = document.createElement('div');
-  overlayContent.id = 'reader-mode-content';
-  overlay.appendChild(closeBtn);
-  overlay.appendChild(overlayContent);
-  overlay.style.display = 'none';
-  document.body.appendChild(overlay);
-
-  closeBtn.addEventListener('click', () => overlay.style.display = 'none');
-
-  readerBtn.addEventListener('click', function(e) {
-    if (isDragging) return;
-    e.stopPropagation();
-    if (overlay.style.display === 'block') {
-      overlay.style.display = 'none';
-      return;
-    }
-    try {
-      const article = new Readability(document.cloneNode(true)).parse();
-      if (article) {
-        overlayContent.innerHTML = `<h1>${article.title}</h1>` + cleanHtml(article.content);
-      } else {
-        overlayContent.innerHTML = `<h1>${document.title}</h1>` + cleanHtml(document.body.innerHTML);
-      }
-    } catch (e) {
-      overlayContent.innerHTML = `<h1>${document.title}</h1>` + cleanHtml(document.body.innerHTML);
-    }
-    overlay.style.display = 'block';
   });
 
   async function copyArticle(format) {
