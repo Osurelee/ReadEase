@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "一键复制网页标题正文",
+  "description": "在网页边缘悬浮按钮，点击一键复制当前页面标题和正文。",
+  "version": "1.0",
+  "permissions": ["scripting", "activeTab", "clipboardWrite"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["Readability.js", "content.js"],
+      "css": ["style.css"]
+    }
+  ],
+  "icons": {
+    "128": "icon.png"
+  }
+}

@@ -1,0 +1,25 @@
+#copy-article-btn {
+  position: fixed;
+  top: 40%;
+  right: 24px;
+  z-index: 999999;
+  background: #fff;
+  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  box-shadow: 0 2px 8px #0002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 15px;
+  font-weight: bold;
+  user-select: none;
+  transition: box-shadow 0.2s;
+}
+#copy-article-btn:hover {
+  box-shadow: 0 4px 12px #0003;
+  background: #f0f0f0;
+}
