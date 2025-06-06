@@ -23,3 +23,24 @@
   box-shadow: 0 4px 12px #0003;
   background: #f0f0f0;
 }
+#copy-format-menu {
+  position: fixed;
+  z-index: 1000000;
+  background: #fff;
+  box-shadow: 0 2px 8px #0002;
+  border-radius: 4px;
+  display: none;
+  font-size: 14px;
+}
+#copy-format-menu button {
+  display: block;
+  padding: 6px 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+#copy-format-menu button:hover {
+  background: #f0f0f0;
+}

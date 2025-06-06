@@ -88,6 +88,16 @@ console.log('copy-article content.js injected');
   document.body.appendChild(btn);
   updateButtonStyle(); // 初始化按钮样式
 
+  // 创建格式选择菜单
+  const menu = document.createElement('div');
+  menu.id = 'copy-format-menu';
+  menu.innerHTML = `
+    <button data-format="html">HTML</button>
+    <button data-format="markdown">Markdown</button>
+    <button data-format="text">Text</button>
+  `;
+  document.body.appendChild(menu);
+
   // 清理HTML内容的函数
   function cleanHtml(html) {
     const div = document.createElement('div');
@@ -129,12 +139,39 @@ console.log('copy-article content.js injected');
     return `${title}\n\n${text}`;
   }
 
-  // 点击事件（优化后的复制功能）
-  btn.addEventListener('click', async function(e) {
-    if (isDragging) return; // 拖动时不复制
+  // 点击显示或隐藏菜单
+  btn.addEventListener('click', function(e) {
+    if (isDragging) return;
+    e.stopPropagation();
+    if (menu.style.display === 'block') {
+      menu.style.display = 'none';
+    } else {
+      const rect = btn.getBoundingClientRect();
+      menu.style.left = rect.left + 'px';
+      menu.style.top = (rect.bottom + 4) + 'px';
+      menu.style.display = 'block';
+    }
+  });
+
+  // 点击菜单外隐藏
+  document.addEventListener('click', function(e) {
+    if (!menu.contains(e.target) && e.target !== btn) {
+      menu.style.display = 'none';
+    }
+  });
+
+  menu.addEventListener('click', function(e) {
+    const format = e.target.getAttribute('data-format');
+    if (!format) return;
+    e.stopPropagation();
+    menu.style.display = 'none';
+    copyArticle(format);
+  });
+
+  async function copyArticle(format) {
     const title = document.title;
     let htmlContent = '', textContent = '';
-    
+
     try {
       const article = new Readability(document.cloneNode(true)).parse();
       if (article) {
@@ -146,15 +183,22 @@ console.log('copy-article content.js injected');
       textContent = formatPlainText(title, document.body.innerText || '');
     }
 
-    const htmlToCopy = `<h1>${title}</h1>${htmlContent}`;
-    
+    const fullHtml = `<h1>${title}</h1>${htmlContent}`;
+    let markdown = `# ${title}\n\n` + htmlToMarkdown(htmlContent);
+
+    const item = {};
+    if (format === 'html') {
+      item['text/html'] = new Blob([fullHtml], {type: 'text/html'});
+      item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
+    } else if (format === 'markdown') {
+      item['text/plain'] = new Blob([markdown], {type: 'text/plain'});
+      item['text/markdown'] = new Blob([markdown], {type: 'text/markdown'});
+    } else {
+      item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
+    }
+
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/html': new Blob([htmlToCopy], {type: 'text/html'}),
-          'text/plain': new Blob([textContent], {type: 'text/plain'})
-        })
-      ]);
+      await navigator.clipboard.write([new ClipboardItem(item)]);
       const originalBg = btn.style.backgroundColor;
       const originalColor = btn.style.color;
       btn.style.backgroundColor = "#e6ffe6";
@@ -168,6 +212,6 @@ console.log('copy-article content.js injected');
     } catch (e) {
       alert('复制失败，请手动复制！');
     }
-  });
+  }
 
 })();
