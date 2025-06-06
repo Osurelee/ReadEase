@@ -191,8 +191,9 @@ console.log('copy-article content.js injected');
       item['text/html'] = new Blob([fullHtml], {type: 'text/html'});
       item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
     } else if (format === 'markdown') {
+      // Some browsers reject unsupported MIME types like text/markdown.
+      // Use plain text only for wider compatibility.
       item['text/plain'] = new Blob([markdown], {type: 'text/plain'});
-      item['text/markdown'] = new Blob([markdown], {type: 'text/markdown'});
     } else {
       item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
     }
