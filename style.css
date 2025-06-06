@@ -1,15 +1,8 @@
-#read-ease-wrap {
+#copy-article-btn {
   position: fixed;
   top: 40%;
   right: 24px;
   z-index: 999999;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-#copy-article-btn,
-#reader-mode-btn {
   background: #fff;
   border-radius: 12px;
   width: 48px;
@@ -26,9 +19,7 @@
   user-select: none;
   transition: box-shadow 0.2s;
 }
-
-#copy-article-btn:hover,
-#reader-mode-btn:hover {
+#copy-article-btn:hover {
   box-shadow: 0 4px 12px #0003;
   background: #f0f0f0;
 }
@@ -52,31 +43,4 @@
 }
 #copy-format-menu button:hover {
   background: #f0f0f0;
-}
-
-#reader-mode-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #fdfdfd;
-  color: #000;
-  overflow: auto;
-  z-index: 1000000;
-  padding: 20px;
-}
-
-#reader-mode-content {
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-#reader-close-btn {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000001;
-  cursor: pointer;
-  padding: 4px 8px;
 }
