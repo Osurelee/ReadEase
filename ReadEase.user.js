@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         ReadEase
 // @namespace    https://github.com/Osurelee/ReadEase
-// @version      1.7
-// @description  在页面标题下方插入“一键复制：[text] [html] [markdown]”。
-// @author       ReadEase contributors
+// @version      1.8
+// @description  在页面标题上方插入“一键复制：[text] [html] [markdown]”。
+// @author       Osurelee
 // @match        *://*/*
 // @grant        GM_setClipboard
 // @require      https://raw.githubusercontent.com/mozilla/readability/refs/heads/main/Readability.js
@@ -237,32 +237,33 @@
             }
 
             case 'ul':
-              md += getContent().trim() + '\n\n';
+              // 修正：处理 ul 内部的 li
+              const ulItems = Array.from(child.children)
+                .filter(li => li.tagName.toLowerCase() === 'li')
+                .map(li => '* ' + traverse(li).trim());
+              md += ulItems.join('\n') + '\n\n';
               break;
 
             case 'ol':
               let start = parseInt(child.getAttribute('start') || '1', 10);
-              const items = Array.from(child.children)
+              const olItems = Array.from(child.children)
                 .filter(li => li.tagName.toLowerCase() === 'li')
                 .map(li => `${start++}. ${traverse(li).trim()}`);
-              md += items.join('\n') + '\n\n';
+              md += olItems.join('\n') + '\n\n';
               break;
 
             case 'li':
-              // 在 ul/ol 处理器中添加前缀，这里只返回内容
-              // 对于嵌套列表，需要递归处理
               let content = '';
               child.childNodes.forEach(subChild => {
                   if (subChild.nodeType === Node.ELEMENT_NODE && (subChild.tagName.toLowerCase() === 'ul' || subChild.tagName.toLowerCase() === 'ol')) {
-                      // 嵌套列表前加换行和缩进
                       const nestedList = traverse(subChild).trim().split('\n').map(line => '    ' + line).join('\n');
                       content += '\n' + nestedList;
                   } else {
+                      // 修正：此处应该调用 traverse 处理子节点，而不是直接拼接
                       content += traverse(subChild);
                   }
               });
               md += content.trim();
-              // ul/ol 会处理 li 之间的换行，这里不加
               break;
 
             case 'blockquote':
@@ -271,17 +272,14 @@
               break;
 
             case 'figure':
-              // figure 标签通常包含图片和说明，直接处理其内容
               md += getContent() + '\n';
               break;
 
             case 'figcaption':
-              // 将图片说明转换为斜体段落
               md += `*${getContent().trim()}*\n\n`;
               break;
 
             default:
-              // 对于 div, span 等容器标签，直接处理其内容
               md += getContent();
               break;
           }
@@ -289,9 +287,7 @@
       });
       return md;
     }
-    // 运行转换并进行最终清理
     let result = traverse(doc.body).trim();
-    // 清理多余的空行，最多保留一个空行
     result = result.replace(/\n{3,}/g, '\n\n');
     return result;
   }
@@ -325,7 +321,14 @@
       return null;
     }
     try {
-      const article = new R(document.cloneNode(true)).parse();
+      // 【关键修改】克隆文档，并在副本中移除工具栏，避免被复制
+      const docClone = document.cloneNode(true);
+      const toolbarClone = docClone.getElementById('copy-inline-toolbar');
+      if (toolbarClone) {
+        toolbarClone.remove();
+      }
+      
+      const article = new R(docClone).parse();
       if (article && article.content) return article; // { title, content, textContent, ... }
     } catch (e) {
       console.debug('[ReadEase] Readability 解析失败：', e);
@@ -405,12 +408,12 @@
   // ========= 构建并插入工具条 =========
   if (document.getElementById('copy-inline-toolbar')) return;
 
-  const toolbar = document.createElement('span');
+  const toolbar = document.createElement('div'); // 使用 div 块级元素，使其单独占一行
   toolbar.id = 'copy-inline-toolbar';
 
   const theme = getContrastColor(getBackgroundColor(document.body));
-  toolbar.style.display = 'inline-block';
-  toolbar.style.margin = '8px 0 0 0';
+  toolbar.style.display = 'block'; // 明确为块级
+  toolbar.style.margin = '0 0 12px 0'; // 调整外边距，下方留出空间
   toolbar.style.padding = '4px 8px';
   toolbar.style.borderRadius = '6px';
   toolbar.style.fontSize = '14px';
@@ -444,7 +447,8 @@
 
   const titleEl = findTitleElement();
   if (titleEl && titleEl.parentElement) {
-    titleEl.insertAdjacentElement('afterend', toolbar);
+    // 【关键修改】将工具栏插入到标题元素之前
+    titleEl.insertAdjacentElement('beforebegin', toolbar);
   } else {
     const container = document.createElement('div');
     container.style.margin = '12px 0';
