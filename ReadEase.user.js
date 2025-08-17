@@ -1,114 +1,23 @@
 // ==UserScript==
 // @name         ReadEase
-// @namespace    https://github.com/example/ReadEase
-// @version      1.1
-// @description  在网页边缘显示可拖动的“复制正文”按钮，一键复制网页标题和正文，支持 HTML、Markdown 或纯文本。
+// @namespace    https://github.com/Osurelee/ReadEase
+// @version      1.7
+// @description  在页面标题下方插入“一键复制：[text] [html] [markdown]”。
 // @author       ReadEase contributors
 // @match        *://*/*
 // @grant        GM_setClipboard
-// @require      https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.js
+// @require      https://raw.githubusercontent.com/mozilla/readability/refs/heads/main/Readability.js
 // @run-at       document-idle
 // ==/UserScript==
 
-(function() {
-  // htmlToMarkdown function
-  function htmlToMarkdown(html) {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    let lastTag = null;
-    return traverse(doc.body);
-
-    function traverse(node) {
-      let md = '';
-      node.childNodes.forEach(child => {
-        if (child.nodeType === Node.TEXT_NODE) {
-          if (!/\S/.test(child.nodeValue)) return;
-          md += child.nodeValue.replace(/\s+/g, ' ');
-        } else if (child.nodeType === Node.ELEMENT_NODE) {
-          const tag = child.tagName.toLowerCase();
-          const content = traverse(child).trim();
-          const className = (child.getAttribute('class') || '').toLowerCase();
-          const isQuoteLike = /quote/.test(className);
-          const isFullQuote = /^“[^”]{2,}”$/.test(content);
-          const parentTag = child.parentElement?.tagName?.toLowerCase() || '';
-
-          switch (tag) {
-            case 'h1': md += '# ' + content + '\n\n'; break;
-            case 'h2': md += '## ' + content + '\n\n'; break;
-            case 'h3': md += '### ' + content + '\n\n'; break;
-            case 'h4': md += '#### ' + content + '\n\n'; break;
-            case 'h5': md += '##### ' + content + '\n\n'; break;
-            case 'h6': md += '###### ' + content + '\n\n'; break;
-            case 'figure':
-              md += '\n' + content + '\n\n';
-              lastTag = 'figure';
-              break;
-            case 'figcaption':
-              md += '\n> ' + content.replace(/\n/g, '\n> ') + '\n\n';
-              lastTag = 'figcaption';
-              break;
-            case 'p': {
-              if (lastTag === 'figcaption' && isFullQuote) {
-                let headingLevel = (parentTag === 'figure') ? 1 : 2;
-                const heading = '#'.repeat(headingLevel) + ' ' + content.trim();
-                md += '\n\n' + heading + '\n\n';
-              } else if (isQuoteLike || isFullQuote) {
-                md += '\n> ' + content.replace(/\n/g, '\n> ') + '\n\n';
-              } else {
-                md += content + '\n\n';
-              }
-              lastTag = 'p';
-              break;
-            }
-            case 'br': md += '\n'; break;
-            case 'strong':
-            case 'b': md += '**' + content + '**'; break;
-            case 'em':
-            case 'i': md += '*' + content + '*'; break;
-            case 'code': md += '`' + content + '`'; break;
-            case 'pre': md += '\n```\n' + child.textContent.trim() + '\n```\n\n'; break;
-            case 'a': {
-              const href = child.getAttribute('href') || '';
-              md += '[' + content + '](' + href + ')';
-              break;
-            }
-            case 'img': {
-              const alt = child.getAttribute('alt') || '';
-              const src = child.getAttribute('src') || '';
-              md += '![' + alt + '](' + src + ')';
-              break;
-            }
-            case 'ul':
-              md += Array.from(child.children)
-                .map(li => '* ' + traverse(li).trim())
-                .join('\n') + '\n\n';
-              break;
-            case 'ol': {
-              let i = 1;
-              md += Array.from(child.children)
-                .map(li => (i++) + '. ' + traverse(li).trim())
-                .join('\n') + '\n\n';
-              break;
-            }
-            case 'li':
-              md += content + '\n';
-              break;
-            case 'blockquote':
-              md += '\n> ' + content.replace(/\n/g, '\n> ') + '\n\n';
-              break;
-            default:
-              if (isQuoteLike) {
-                md += '\n> ' + content.replace(/\n/g, '\n> ') + '\n\n';
-              } else {
-                md += content;
-              }
-          }
-        }
-      });
-      return md;
-    }
+(function () {
+  // ========= 可见性 & 主题色 =========
+  function isVisible(el) {
+    if (!el) return false;
+    const style = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
   }
-
-  if (document.getElementById('copy-article-btn')) return;
 
   function getBackgroundColor(element) {
     const backgroundColor = window.getComputedStyle(element).backgroundColor;
@@ -124,213 +33,432 @@
 
   function getContrastColor(backgroundColor) {
     const rgb = backgroundColor.match(/\d+/g);
-    if (!rgb || rgb.length < 3) return { color: '#000000', background: '#ffffff' };
-    const luminance = getLuminance(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
-    return luminance > 0.5 ?
-      { color: '#000000', background: '#ffffff' } :
-      { color: '#ffffff', background: '#000000' };
+    if (!rgb || rgb.length < 3) return { color: '#000000', background: '#ffffff', hover: '#f0f0f0' };
+    const lum = getLuminance(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
+    return lum > 0.5
+      ? { color: '#000000', background: '#ffffff', hover: '#f0f0f0' }
+      : { color: '#ffffff', background: '#000000', hover: '#333333' };
   }
 
-  const btn = document.createElement('button');
-  btn.id = 'copy-article-btn';
-  btn.title = '一键复制网页标题和正文';
-
-  function updateStyles() {
-    const bodyBgColor = getBackgroundColor(document.body);
-    const colors = getContrastColor(bodyBgColor);
-    btn.style.color = colors.color;
-    btn.style.backgroundColor = colors.background;
-    btn.style.border = `1px solid ${colors.color}`;
-    if (menu) {
-      menu.style.color = colors.color;
-      menu.style.backgroundColor = colors.background;
-      menu.style.border = `1px solid ${colors.color}`;
-      const hoverBg = colors.background === '#ffffff' ? '#f0f0f0' : '#333333';
-      menu.querySelectorAll('button').forEach(mb => {
-        mb.style.color = colors.color;
-        mb.style.backgroundColor = 'transparent';
-        mb.onmouseenter = () => mb.style.backgroundColor = hoverBg;
-        mb.onmouseleave = () => mb.style.backgroundColor = 'transparent';
-      });
-    }
-  }
-
-  btn.innerHTML = '<div style="font-size:15px;line-height:1.1;font-weight:bold;white-space:pre;user-select:none;text-align:center;">复制\n正文</div>';
-
-  let isDragging = false, offsetX = 0, offsetY = 0;
-
-  btn.addEventListener('mousedown', function(e) {
-    isDragging = true;
-    offsetX = e.clientX - btn.getBoundingClientRect().left;
-    offsetY = e.clientY - btn.getBoundingClientRect().top;
-    btn.style.transition = 'none';
-    document.body.style.userSelect = 'none';
-  });
-
-  document.addEventListener('mousemove', function(e) {
-    if (isDragging) {
-      btn.style.left = (e.clientX - offsetX) + 'px';
-      btn.style.top = (e.clientY - offsetY) + 'px';
-      btn.style.right = 'auto';
-    }
-  });
-
-  document.addEventListener('mouseup', function() {
-    if (isDragging) {
-      isDragging = false;
-      btn.style.transition = '';
-      document.body.style.userSelect = '';
-    }
-  });
-
-  btn.style.left = 'auto';
-  btn.style.top = '40%';
-  btn.style.right = '24px';
-
-  const menu = document.createElement('div');
-  menu.id = 'copy-format-menu';
-  menu.innerHTML = `
-    <button data-format="html">HTML</button>
-    <button data-format="markdown">Markdown</button>
-    <button data-format="text">Text</button>
-  `;
-  document.body.appendChild(menu);
-
-  const observer = new MutationObserver(updateStyles);
-  observer.observe(document.body, {
-    attributes: true,
-    attributeFilter: ['style', 'class'],
-    subtree: true
-  });
-
-  document.body.appendChild(btn);
-  updateStyles();
-
+  // ========= HTML 清理 & 文本格式 =========
   function cleanHtml(html) {
     const div = document.createElement('div');
     div.innerHTML = html;
-    const elementsToRemove = div.querySelectorAll(
+    const rm = div.querySelectorAll(
       'script, style, link, meta, iframe, button, input, form, nav, footer, [role="complementary"], [class*="sidebar"], [class*="related"], [class*="comment"]'
     );
-    elementsToRemove.forEach(el => el.remove());
-    const emptyElements = div.querySelectorAll('*:empty');
-    emptyElements.forEach(el => el.remove());
-    const allElements = div.getElementsByTagName('*');
-    for (let el of allElements) {
+    rm.forEach(el => el.remove());
+    // 不移除 <picture>/<source>；仅移除空节点
+    div.querySelectorAll('*:empty:not(img):not(br)').forEach(el => {
+        if (!el.hasChildNodes() && !el.textContent.trim()) {
+            el.remove();
+        }
+    });
+    const all = div.getElementsByTagName('*');
+    for (let el of all) {
       el.removeAttribute('class');
       el.removeAttribute('style');
       el.removeAttribute('id');
     }
-    const paragraphs = div.getElementsByTagName('p');
-    for (let p of paragraphs) {
+    for (let p of div.getElementsByTagName('p')) {
       p.style.margin = '1em 0';
     }
     return div.innerHTML;
   }
 
   function formatPlainText(title, text) {
-    text = text.replace(/\n{3,}/g, '\n\n');
+    text = (text || '').replace(/\n{3,}/g, '\n\n');
     return `${title}\n\n${text}`;
   }
 
-  btn.addEventListener('click', function(e) {
-    if (isDragging) return;
-    e.stopPropagation();
-    if (menu.style.display === 'block') {
-      menu.style.display = 'none';
+  // ========= URL、图片工具 =========
+  function toAbsoluteUrl(u) {
+    try { return new URL(u, document.baseURI).href; } catch { return u || ''; }
+  }
+
+  function pickBestFromSrcset(srcset) {
+    if (!srcset) return null;
+    const items = srcset.split(',').map(s => s.trim()).map(s => {
+      const m = s.match(/^(.*?)\s+(\d+)(w|x)$/i);
+      if (m) return { url: m[1], score: parseInt(m[2], 10) };
+      return { url: s.split(/\s+/)[0], score: 0 };
+    });
+    items.sort((a, b) => b.score - a.score);
+    return items[0]?.url || null;
+  }
+
+  function needsAngleBrackets(url) {
+    return /[()\s<>]/.test(url || '');
+  }
+  function mdUrl(url) {
+    if (!url) return '';
+    const abs = toAbsoluteUrl(url);
+    return needsAngleBrackets(abs) ? `<${abs}>` : abs;
+  }
+
+  function getPictureBestSrc(pictureEl) {
+    if (!pictureEl) return null;
+    const sources = Array.from(pictureEl.querySelectorAll('source'));
+    let best = null, bestScore = -1;
+    for (const s of sources) {
+      const ss = s.getAttribute('srcset') || s.getAttribute('data-srcset');
+      const pick = pickBestFromSrcset(ss);
+      if (pick) {
+        const m = ss?.match(/(\d+)(w|x)\s*$/i);
+        const score = (m ? parseInt(m[1], 10) : 0) + pick.length / 1000;
+        if (score > bestScore) { bestScore = score; best = pick; }
+      }
+    }
+    if (best) return best;
+
+    const img = pictureEl.querySelector('img');
+    if (img) return getImgSrc(img);
+    return null;
+  }
+
+  function getImgSrc(el) {
+    if (!el) return '';
+    if (el.tagName && el.tagName.toLowerCase() === 'picture') {
+      const s = getPictureBestSrc(el);
+      return s ? toAbsoluteUrl(s) : '';
+    }
+    const imgEl = el;
+    const attrs = ['src', 'data-src', 'data-original', 'data-actualsrc', 'data-lazy-src', 'data-lazy', 'data-url', 'data-image', 'data-image-src', 'data-kg-src'];
+    let src = null;
+    for (const key of attrs) {
+      const v = imgEl.getAttribute && imgEl.getAttribute(key);
+      if (v && v.trim()) { src = v.trim(); break; }
+    }
+    if (!src) {
+      const srcset = imgEl.getAttribute && (imgEl.getAttribute('srcset') || imgEl.getAttribute('data-srcset'));
+      const best = pickBestFromSrcset(srcset);
+      if (best) src = best;
+    }
+    if (!src) {
+      const pic = imgEl.closest && imgEl.closest('picture');
+      if (pic) {
+        const best = getPictureBestSrc(pic);
+        if (best) src = best;
+      }
+    }
+    return toAbsoluteUrl(src || '');
+  }
+
+  function anchorHasOnlyVisual(aEl) {
+    const hasVisual = !!(aEl.querySelector('img') || aEl.querySelector('picture'));
+    const text = (aEl.textContent || '').replace(/\s+|&nbsp;/g, '');
+    return hasVisual && text.length === 0;
+  }
+
+  function imageNodeToMarkdown(node) {
+    let alt = '';
+    let url = '';
+    if (node.tagName.toLowerCase() === 'picture') {
+      const img = node.querySelector('img');
+      alt = (img && img.getAttribute('alt')) || '';
+      url = getPictureBestSrc(node) || (img ? getImgSrc(img) : '');
     } else {
-      const rect = btn.getBoundingClientRect();
-      menu.style.left = rect.left + 'px';
-      menu.style.top = (rect.bottom + 4) + 'px';
-      menu.style.display = 'block';
+      alt = node.getAttribute('alt') || '';
+      url = getImgSrc(node);
     }
-  });
+    // 确保 alt 文本中的方括号被转义，避免破坏 Markdown 语法
+    alt = alt.replace(/([\[\]])/g, '\\$1');
+    return url ? `![${alt}](${mdUrl(url)})` : (alt ? `![${alt}]()` : '');
+  }
 
-  document.addEventListener('click', function(e) {
-    if (!menu.contains(e.target) && e.target !== btn) {
-      menu.style.display = 'none';
+  // ========= HTML -> Markdown (已优化) =========
+  function htmlToMarkdown(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    function traverse(node) {
+      let md = '';
+      node.childNodes.forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE) {
+          // 多个空白符合并为单个空格，但保留换行符的意图
+          if (/\S/.test(child.nodeValue)) {
+            md += child.nodeValue.replace(/\s+/g, ' ');
+          }
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const tag = child.tagName.toLowerCase();
+          const getContent = () => traverse(child); // 子节点递归，不 trim() 以保留内部格式
+
+          switch (tag) {
+            case 'h1': md += '# ' + getContent().trim() + '\n\n'; break;
+            case 'h2': md += '## ' + getContent().trim() + '\n\n'; break;
+            case 'h3': md += '### ' + getContent().trim() + '\n\n'; break;
+            case 'h4': md += '#### ' + getContent().trim() + '\n\n'; break;
+            case 'h5': md += '##### ' + getContent().trim() + '\n\n'; break;
+            case 'h6': md += '###### ' + getContent().trim() + '\n\n'; break;
+
+            case 'p':
+              md += getContent().trim() + '\n\n';
+              break;
+
+            case 'br':
+              md += '  \n'; // Markdown 硬换行
+              break;
+
+            case 'strong':
+            case 'b':
+              md += '**' + getContent().trim() + '**';
+              break;
+
+            case 'em':
+            case 'i':
+              md += '*' + getContent().trim() + '*';
+              break;
+
+            case 'code':
+              md += '`' + getContent().trim() + '`';
+              break;
+
+            case 'pre':
+              // 对于 <pre> 标签，通常内部包含 <code>，我们直接取其文本内容
+              md += '\n```\n' + child.textContent.trim() + '\n```\n\n';
+              break;
+
+            case 'img':
+            case 'picture':
+              md += imageNodeToMarkdown(child) + '\n\n'; // 图片作为独立段落
+              break;
+
+            case 'a': {
+              if (anchorHasOnlyVisual(child)) {
+                const visualNode = child.querySelector('picture') || child.querySelector('img');
+                if (visualNode) {
+                  md += imageNodeToMarkdown(visualNode) + '\n\n';
+                }
+              } else {
+                const href = child.getAttribute('href') || '';
+                const text = getContent().trim() || href;
+                md += `[${text}](${mdUrl(href)})`;
+              }
+              break;
+            }
+
+            case 'ul':
+              md += getContent().trim() + '\n\n';
+              break;
+
+            case 'ol':
+              let start = parseInt(child.getAttribute('start') || '1', 10);
+              const items = Array.from(child.children)
+                .filter(li => li.tagName.toLowerCase() === 'li')
+                .map(li => `${start++}. ${traverse(li).trim()}`);
+              md += items.join('\n') + '\n\n';
+              break;
+
+            case 'li':
+              // 在 ul/ol 处理器中添加前缀，这里只返回内容
+              // 对于嵌套列表，需要递归处理
+              let content = '';
+              child.childNodes.forEach(subChild => {
+                  if (subChild.nodeType === Node.ELEMENT_NODE && (subChild.tagName.toLowerCase() === 'ul' || subChild.tagName.toLowerCase() === 'ol')) {
+                      // 嵌套列表前加换行和缩进
+                      const nestedList = traverse(subChild).trim().split('\n').map(line => '    ' + line).join('\n');
+                      content += '\n' + nestedList;
+                  } else {
+                      content += traverse(subChild);
+                  }
+              });
+              md += content.trim();
+              // ul/ol 会处理 li 之间的换行，这里不加
+              break;
+
+            case 'blockquote':
+              const quoteContent = getContent().trim().replace(/\n{2,}/g, '\n').replace(/^/gm, '> ');
+              md += `\n${quoteContent}\n\n`;
+              break;
+
+            case 'figure':
+              // figure 标签通常包含图片和说明，直接处理其内容
+              md += getContent() + '\n';
+              break;
+
+            case 'figcaption':
+              // 将图片说明转换为斜体段落
+              md += `*${getContent().trim()}*\n\n`;
+              break;
+
+            default:
+              // 对于 div, span 等容器标签，直接处理其内容
+              md += getContent();
+              break;
+          }
+        }
+      });
+      return md;
     }
-  });
+    // 运行转换并进行最终清理
+    let result = traverse(doc.body).trim();
+    // 清理多余的空行，最多保留一个空行
+    result = result.replace(/\n{3,}/g, '\n\n');
+    return result;
+  }
 
-  menu.addEventListener('click', function(e) {
-    const format = e.target.getAttribute('data-format');
-    if (!format) return;
-    e.stopPropagation();
-    menu.style.display = 'none';
-    copyArticle(format);
-  });
 
-  async function copyArticle(format) {
-    const title = document.title;
+  // ========= 标题定位 =========
+  function findTitleElement() {
+    const h1s = Array.from(document.querySelectorAll('h1')).filter(isVisible);
+    if (h1s.length) return h1s[0];
+    const candidates = [
+      '[itemprop="headline"]',
+      '.post-title,.article-title,.entry-title,.title',
+      'h2.page-title'
+    ];
+    for (const sel of candidates) {
+      const el = document.querySelector(sel);
+      if (isVisible(el)) return el;
+    }
+    return null;
+  }
+
+  // ========= Readability 提取 =========
+  async function getReadableArticle() {
+    const R =
+      (typeof Readability !== 'undefined' && Readability) ||
+      window.Readability ||
+      (typeof unsafeWindow !== 'undefined' ? unsafeWindow.Readability : undefined);
+
+    if (!R) {
+      console.debug('[ReadEase] 未检测到 Readability 全局对象。');
+      return null;
+    }
+    try {
+      const article = new R(document.cloneNode(true)).parse();
+      if (article && article.content) return article; // { title, content, textContent, ... }
+    } catch (e) {
+      console.debug('[ReadEase] Readability 解析失败：', e);
+    }
+    return null;
+  }
+
+  // ========= 复制逻辑 =========
+  async function copyArticle(format, toolbarEl) {
+    const article = await getReadableArticle();
+    const title = article?.title || document.title || 'Untitled';
     let htmlContent = '', textContent = '';
 
-    try {
-      const article = new Readability(document.cloneNode(true)).parse();
-      if (article) {
-        htmlContent = cleanHtml(article.content);
-        textContent = formatPlainText(title, article.textContent);
-      }
-    } catch (e) {
+    if (article) {
+      htmlContent = cleanHtml(article.content);
+      textContent = formatPlainText(title, article.textContent || '');
+    } else {
       htmlContent = cleanHtml(document.body.innerHTML);
       textContent = formatPlainText(title, document.body.innerText || '');
     }
 
     const fullHtml = `<h1>${title}</h1>${htmlContent}`;
-    let markdown = `# ${title}\n\n` + htmlToMarkdown(htmlContent);
+    const markdownBody = htmlToMarkdown(htmlContent);
+    const markdown = `# ${title}\n\n${markdownBody}`;
 
     const item = {};
     if (format === 'html') {
-      item['text/html'] = new Blob([fullHtml], {type: 'text/html'});
-      item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
+      item['text/html'] = new Blob([fullHtml], { type: 'text/html' });
+      item['text/plain'] = new Blob([textContent], { type: 'text/plain' });
     } else if (format === 'markdown') {
-      item['text/plain'] = new Blob([markdown], {type: 'text/plain'});
-      item['text/markdown'] = new Blob([markdown], {type: 'text/markdown'});
+      item['text/plain'] = new Blob([markdown], { type: 'text/plain' });
+      item['text/markdown'] = new Blob([markdown], { type: 'text/markdown' });
     } else {
-      item['text/plain'] = new Blob([textContent], {type: 'text/plain'});
+      item['text/plain'] = new Blob([textContent], { type: 'text/plain' });
     }
 
+    const feedbackOk = () => {
+      if (!toolbarEl) return;
+      const originalBg = toolbarEl.style.backgroundColor;
+      const originalColor = toolbarEl.style.color;
+      toolbarEl.style.backgroundColor = '#e6ffe6';
+      toolbarEl.style.color = '#000000';
+      setTimeout(() => {
+        toolbarEl.style.backgroundColor = originalBg;
+        toolbarEl.style.color = originalColor;
+      }, 900);
+    };
+
+    const writeTextFallback = async () => {
+      const textData = format === 'markdown' ? markdown : (format === 'html' ? fullHtml : textContent);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textData);
+      } else if (typeof GM_setClipboard === 'function') {
+        GM_setClipboard(textData);
+      } else {
+        throw new Error('No clipboard API available');
+      }
+    };
+
     try {
-      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      if (window.ClipboardItem && navigator.clipboard?.write) {
         await navigator.clipboard.write([new ClipboardItem(item)]);
       } else {
-        const textData = format === "markdown" ? markdown : (format === "html" ? fullHtml : textContent);
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(textData);
-        } else if (typeof GM_setClipboard === 'function') {
-          GM_setClipboard(textData);
-        }
+        await writeTextFallback();
       }
-      const originalBg = btn.style.backgroundColor;
-      const originalColor = btn.style.color;
-      btn.style.backgroundColor = "#e6ffe6";
-      btn.style.color = "#000000";
-      btn.title = "复制成功！";
-      setTimeout(()=> {
-        btn.style.backgroundColor = originalBg;
-        btn.style.color = originalColor;
-        btn.title = "一键复制网页标题和正文";
-      }, 1200);
+      feedbackOk();
     } catch (e) {
       try {
-        const textData = format === "markdown" ? markdown : (format === "html" ? fullHtml : textContent);
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(textData);
-        } else if (typeof GM_setClipboard === 'function') {
-          GM_setClipboard(textData);
-        }
-        const originalBg = btn.style.backgroundColor;
-        const originalColor = btn.style.color;
-        btn.style.backgroundColor = "#e6ffe6";
-        btn.style.color = "#000000";
-        btn.title = "复制成功！";
-        setTimeout(() => {
-          btn.style.backgroundColor = originalBg;
-          btn.style.color = originalColor;
-          btn.title = "一键复制网页标题和正文";
-        }, 1200);
+        await writeTextFallback();
+        feedbackOk();
       } catch (err) {
         alert('复制失败，请手动复制！');
       }
     }
   }
+
+  // ========= 构建并插入工具条 =========
+  if (document.getElementById('copy-inline-toolbar')) return;
+
+  const toolbar = document.createElement('span');
+  toolbar.id = 'copy-inline-toolbar';
+
+  const theme = getContrastColor(getBackgroundColor(document.body));
+  toolbar.style.display = 'inline-block';
+  toolbar.style.margin = '8px 0 0 0';
+  toolbar.style.padding = '4px 8px';
+  toolbar.style.borderRadius = '6px';
+  toolbar.style.fontSize = '14px';
+  toolbar.style.lineHeight = '1.6';
+  toolbar.style.border = `1px solid ${theme.color}`;
+  toolbar.style.backgroundColor = theme.background;
+  toolbar.style.color = theme.color;
+  toolbar.style.userSelect = 'none';
+  toolbar.style.zIndex = '99999';
+
+  toolbar.innerHTML = `
+    <span style="opacity:.85">一键复制：</span>
+    <a href="#" data-format="text" style="text-decoration:none;margin:0 6px;">[text]</a>
+    <a href="#" data-format="html" style="text-decoration:none;margin:0 6px;">[html]</a>
+    <a href="#" data-format="markdown" style="text-decoration:none;margin:0 6px;">[markdown]</a>
+  `;
+
+  Array.from(toolbar.querySelectorAll('a')).forEach(a => {
+    a.style.color = theme.color;
+    a.style.padding = '0 2px';
+    a.addEventListener('mouseenter', () => { a.style.backgroundColor = theme.hover; });
+    a.addEventListener('mouseleave', () => { a.style.backgroundColor = 'transparent'; });
+  });
+
+  toolbar.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-format]');
+    if (!a) return;
+    e.preventDefault();
+    copyArticle(a.getAttribute('data-format'), toolbar);
+  });
+
+  const titleEl = findTitleElement();
+  if (titleEl && titleEl.parentElement) {
+    titleEl.insertAdjacentElement('afterend', toolbar);
+  } else {
+    const container = document.createElement('div');
+    container.style.margin = '12px 0';
+    container.appendChild(toolbar);
+    document.body.insertBefore(container, document.body.firstChild);
+  }
+
+  // 主题变化时自适应
+  const observer = new MutationObserver(() => {
+    const t = getContrastColor(getBackgroundColor(document.body));
+    toolbar.style.backgroundColor = t.background;
+    toolbar.style.color = t.color;
+    toolbar.style.border = `1px solid ${t.color}`;
+    Array.from(toolbar.querySelectorAll('a')).forEach(a => { a.style.color = t.color; });
+  });
+  observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'class'], subtree: true });
 })();
