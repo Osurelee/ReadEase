@@ -1,5 +1,7 @@
 #copy-article-btn {
   position: fixed;
+  top: 40%;
+  right: 24px;
   z-index: 999999;
   background: #fff;
   border-radius: 12px;
