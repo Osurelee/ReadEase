@@ -161,13 +161,9 @@
 
   btn.addEventListener('mousedown', function(e) {
     isDragging = true;
-    const rect = btn.getBoundingClientRect();
-    offsetX = e.clientX - rect.left;
-    offsetY = e.clientY - rect.top;
+    offsetX = e.clientX - btn.getBoundingClientRect().left;
+    offsetY = e.clientY - btn.getBoundingClientRect().top;
     btn.style.transition = 'none';
-    btn.style.left = rect.left + 'px';
-    btn.style.top = rect.top + 'px';
-    btn.style.transform = '';
     document.body.style.userSelect = 'none';
   });
 
@@ -187,22 +183,9 @@
     }
   });
 
-  function positionButton() {
-    const heading = document.querySelector('h1');
-    btn.style.position = 'fixed';
-    if (heading) {
-      const rect = heading.getBoundingClientRect();
-      btn.style.left = (rect.left + rect.width / 2) + 'px';
-      btn.style.top = (rect.bottom + 8) + 'px';
-    } else {
-      btn.style.left = '50%';
-      btn.style.top = '8px';
-    }
-    btn.style.right = 'auto';
-    btn.style.transform = 'translateX(-50%)';
-  }
-  positionButton();
-  window.addEventListener('resize', positionButton);
+  btn.style.left = 'auto';
+  btn.style.top = '40%';
+  btn.style.right = '24px';
 
   const menu = document.createElement('div');
   menu.id = 'copy-format-menu';
@@ -257,9 +240,8 @@
       menu.style.display = 'none';
     } else {
       const rect = btn.getBoundingClientRect();
-      menu.style.left = (rect.left + rect.width / 2) + 'px';
+      menu.style.left = rect.left + 'px';
       menu.style.top = (rect.bottom + 4) + 'px';
-      menu.style.transform = 'translateX(-50%)';
       menu.style.display = 'block';
     }
   });
