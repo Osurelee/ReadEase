@@ -3,25 +3,48 @@
   top: 40%;
   right: 24px;
   z-index: 999999;
-  background: #fff;
-  border-radius: 12px;
-  width: 48px;
-  height: 48px;
-  border: none;
-  box-shadow: 0 2px 8px #0002;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(34, 211, 238, 0.16)),
+    var(--copy-btn-surface, #0f172a);
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--copy-btn-border, #94a3b8) 45%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--copy-btn-border, #0f172a) 14%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--copy-btn-surface, #0f172a) 30%, transparent);
+  display: grid;
+  place-items: center;
   cursor: pointer;
   padding: 0;
-  font-size: 15px;
-  font-weight: bold;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--copy-btn-text, #e2e8f0);
   user-select: none;
-  transition: box-shadow 0.2s;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.3s ease;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
 }
 #copy-article-btn:hover {
-  box-shadow: 0 4px 12px #0003;
-  background: #f0f0f0;
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--copy-btn-glow, rgba(15, 23, 42, 0.2)) 60%, transparent);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.24), rgba(34, 211, 238, 0.26)),
+    var(--copy-btn-surface, #0f172a);
+}
+#copy-article-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+#copy-article-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.24), transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.18), transparent 38%);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.copy-btn-icon {
+  font-size: 18px;
+  color: currentColor;
+  text-shadow: 0 4px 12px color-mix(in srgb, var(--copy-btn-glow, rgba(0, 0, 0, 0.25)) 70%, transparent);
 }
 #copy-format-menu {
   position: fixed;
