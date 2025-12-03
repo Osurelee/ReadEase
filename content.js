@@ -111,7 +111,7 @@ console.log('copy-article content.js injected');
   document.body.appendChild(btn);
   updateStyles(); // 初始化样式
 
-  // 清理HTML内容的函数
+  // 清理HTML内容并提取图片地址的函数
   function cleanHtml(html) {
     const div = document.createElement('div');
     div.innerHTML = html;
@@ -121,6 +121,36 @@ console.log('copy-article content.js injected');
       'script, style, link, meta, iframe, button, input, form, nav, footer, [role="complementary"], [class*="sidebar"], [class*="related"], [class*="comment"]'
     );
     elementsToRemove.forEach(el => el.remove());
+
+    // 规范化图片，优先使用 data-src 等懒加载字段并转换为绝对地址
+    const imageSrcSet = new Set();
+    const images = div.querySelectorAll('img');
+    images.forEach(img => {
+      const candidate = img.getAttribute('data-src')
+        || img.getAttribute('data-original')
+        || img.getAttribute('data-lazy-src')
+        || img.getAttribute('data-actualsrc')
+        || img.getAttribute('srcset')?.split(',')[0].trim().split(' ')[0]
+        || img.getAttribute('src');
+
+      if (!candidate) {
+        img.remove();
+        return;
+      }
+
+      try {
+        const absoluteUrl = new URL(candidate, location.href).href;
+        img.setAttribute('src', absoluteUrl);
+        imageSrcSet.add(absoluteUrl);
+      } catch (err) {
+        // 如果URL无法解析，则移除该图片
+        img.remove();
+      }
+
+      img.removeAttribute('srcset');
+      img.removeAttribute('loading');
+      img.removeAttribute('decoding');
+    });
 
     // 移除空标签
     const emptyElements = div.querySelectorAll('div:empty, span:empty, p:empty');
@@ -140,16 +170,22 @@ console.log('copy-article content.js injected');
       p.style.margin = '1em 0';
     }
 
-    return div.innerHTML;
+    return { html: div.innerHTML, images: Array.from(imageSrcSet) };
   }
 
   // 格式化纯文本的函数
-  function formatPlainText(title, text) {
+  function formatPlainText(title, text, images = []) {
     // 移除多余的空行
     text = text.replace(/\n{3,}/g, '\n\n');
-    
+
+    let result = `${title}\n\n${text}`;
+
+    if (images.length) {
+      result += `\n\n图片：\n${images.map(src => `- ${src}`).join('\n')}`;
+    }
+
     // 确保标题和正文之间有适当的间距
-    return `${title}\n\n${text}`;
+    return result;
   }
 
   // 点击显示或隐藏菜单
@@ -183,17 +219,21 @@ console.log('copy-article content.js injected');
 
   async function copyArticle(format) {
     const title = document.title;
-    let htmlContent = '', textContent = '';
+    let htmlContent = '', textContent = '', imageSources = [];
 
     try {
       const article = new Readability(document.cloneNode(true)).parse();
       if (article) {
-        htmlContent = cleanHtml(article.content);
-        textContent = formatPlainText(title, article.textContent);
+        const cleaned = cleanHtml(article.content);
+        htmlContent = cleaned.html;
+        imageSources = cleaned.images;
+        textContent = formatPlainText(title, article.textContent || '', imageSources);
       }
     } catch (e) {
-      htmlContent = cleanHtml(document.body.innerHTML);
-      textContent = formatPlainText(title, document.body.innerText || '');
+      const cleaned = cleanHtml(document.body.innerHTML);
+      htmlContent = cleaned.html;
+      imageSources = cleaned.images;
+      textContent = formatPlainText(title, document.body.innerText || '', imageSources);
     }
 
     const fullHtml = `<h1>${title}</h1>${htmlContent}`;
