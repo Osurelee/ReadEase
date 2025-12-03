@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["Readability.js", "htmlToMarkdown.js", "content.js"],
+      "js": ["Readability.js", "turndown.js", "htmlToMarkdown.js", "content.js"],
       "css": ["style.css"]
     }
   ],
