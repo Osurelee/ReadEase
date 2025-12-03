@@ -31,18 +31,15 @@ console.log('copy-article content.js injected');
   const btn = document.createElement('button');
   btn.id = 'copy-article-btn';
   btn.title = '一键复制网页标题和正文';
-  btn.setAttribute('aria-label', '复制正文');
 
   // 根据页面背景设置按钮和菜单样式
   function updateStyles() {
     const bodyBgColor = getBackgroundColor(document.body);
     const colors = getContrastColor(bodyBgColor);
 
-    btn.style.setProperty('--copy-btn-text', colors.color);
-    btn.style.setProperty('--copy-btn-surface', colors.background);
-    btn.style.setProperty('--copy-btn-border', colors.color);
-    const glowColor = colors.color === '#000000' ? 'rgba(0, 0, 0, 0.22)' : 'rgba(255, 255, 255, 0.35)';
-    btn.style.setProperty('--copy-btn-glow', glowColor);
+    btn.style.color = colors.color;
+    btn.style.backgroundColor = colors.background;
+    btn.style.border = `1px solid ${colors.color}`;
 
     if (menu) {
       menu.style.color = colors.color;
@@ -59,7 +56,7 @@ console.log('copy-article content.js injected');
   }
 
   // 纯文字按钮内容
-  btn.innerHTML = '<span class="copy-btn-icon">✺</span>';
+  btn.innerHTML = '<div style="font-size:15px;line-height:1.1;font-weight:bold;white-space:pre;user-select:none;text-align:center;">复制\n正文</div>';
 
   // 拖动功能变量
   let isDragging = false, offsetX = 0, offsetY = 0;
